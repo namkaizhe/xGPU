@@ -880,84 +880,97 @@ int E21_Example()
     }
 
 
-    //
+    
     // Grid Materials
-    //
-    //struct grid_push_constants
-    //{
-    //    xmath::fmat4    m_L2W;                                                              // Identity matrix for local-to-world
-    //    xmath::fmat4    m_W2C;                                                              // Identity matrix for world-to-clip (adjust based on camera projection)
-    //    xmath::fmat4    m_L2CTShadow;                                                       // Local to shadow texture
-    //    xmath::fvec3d   m_WorldSpaceCameraPos = xmath::fvec3(0.0f, 10.0f, 0.0f);            // Typical overhead camera position
-    //    float           m_MajorGridDiv = 10.0f;                                             // 10 major divisions
-    //};
+    
+    struct alignas(256) ubo_grid
+    {
+        xmath::fmat4    m_L2W;                                                              // Identity matrix for local-to-world
+        xmath::fmat4    m_W2C;                                                              // Identity matrix for world-to-clip (adjust based on camera projection)
+        xmath::fmat4    m_L2CTShadow;                                                       // Local to shadow texture
+        xmath::fvec3    m_WorldSpaceCameraPos = xmath::fvec3(0.0f, 10.0f, 0.0f);            // Typical overhead camera position
+        float           m_MajorGridDiv = 10.0f;                                             // 10 major divisions
+    };
 
-    //xgpu::pipeline          Grid3dMaterial;
-    //xgpu::pipeline_instance Grid3dMaterialInstance;
-    //{
-    //    xgpu::shader VertexShader;
-    //    {
-    //        xgpu::shader::setup Setup
-    //        { .m_Type   = xgpu::shader::type::bit::VERTEX
-    //        , .m_Sharer = xgpu::shader::setup::raw_data{std::span{ (std::int32_t*)e21::g_GridVertShader, sizeof(e21::g_GridVertShader) / sizeof(int)}}
-    //        };
-    //        if (auto Err = Device.Create(VertexShader, Setup); Err)
-    //        {
-    //            assert(false);
-    //            exit(xgpu::getErrorInt(Err));
-    //        }
-    //    }
 
-    //    xgpu::shader FragShader;
-    //    {
-    //        xgpu::shader::setup Setup
-    //        { .m_Type   = xgpu::shader::type::bit::FRAGMENT
-    //        , .m_Sharer = xgpu::shader::setup::raw_data{std::span{ (std::int32_t*)e21::g_GridFragShader, sizeof(e21::g_GridFragShader) / sizeof(int)}}
-    //        };
-    //        if (auto Err = Device.Create(FragShader, Setup); Err)
-    //        {
-    //            assert(false);
-    //            exit(xgpu::getErrorInt(Err));
-    //        }
-    //    }
+    xgpu::buffer GridDynamicUBO;
+    if (auto Err = Device.Create(GridDynamicUBO, { .m_Type = xgpu::buffer::type::UNIFORM, .m_Usage = xgpu::buffer::setup::usage::CPU_WRITE_GPU_READ, .m_EntryByteSize = sizeof(ubo_grid), .m_EntryCount = 10 }); Err)
+        return xgpu::getErrorInt(Err);
 
-    //    // grid mat
-    //    {
-    //        auto Samplers = std::array{ xgpu::pipeline::sampler{.m_AddressMode = std::array{ xgpu::pipeline::sampler::address_mode::CLAMP, xgpu::pipeline::sampler::address_mode::CLAMP, xgpu::pipeline::sampler::address_mode::CLAMP}}         // Shadowmap
-    //        };
+    xgpu::pipeline          Grid3dMaterial;
+    xgpu::pipeline_instance Grid3dMaterialInstance;
+    {
+        xgpu::shader VertexShader;
+        {
+            xgpu::shader::setup Setup
+            { .m_Type   = xgpu::shader::type::bit::VERTEX
+            , .m_Sharer = xgpu::shader::setup::raw_data{std::span{ (std::int32_t*)e21::g_GridVertShader, sizeof(e21::g_GridVertShader) / sizeof(int)}}
+            };
+            if (auto Err = Device.Create(VertexShader, Setup); Err)
+            {
+                assert(false);
+                exit(xgpu::getErrorInt(Err));
+            }
+        }
 
-    //        auto Shaders = std::array<const xgpu::shader*, 2>{ &FragShader, &VertexShader };
-    //        auto Setup = xgpu::pipeline::setup
-    //        { .m_VertexDescriptor   = Primitive3DVertexDescriptor
-    //        , .m_Shaders            = Shaders
-    //        , .m_PushConstantsSize  = sizeof(grid_push_constants)
-    //        , .m_Samplers           = Samplers
-    //        , .m_Blend              = xgpu::pipeline::blend::getAlphaOriginal()
-    //        };
+        xgpu::shader FragShader;
+        {
+            xgpu::shader::setup Setup
+            { .m_Type   = xgpu::shader::type::bit::FRAGMENT
+            , .m_Sharer = xgpu::shader::setup::raw_data{std::span{ (std::int32_t*)e21::g_GridFragShader, sizeof(e21::g_GridFragShader) / sizeof(int)}}
+            };
+            if (auto Err = Device.Create(FragShader, Setup); Err)
+            {
+                assert(false);
+                exit(xgpu::getErrorInt(Err));
+            }
+        }
 
-    //        if (auto Err = Device.Create(Grid3dMaterial, Setup); Err)
-    //        {
-    //            assert(false);
-    //            exit(xgpu::getErrorInt(Err));
-    //        }
-    //    }
+        // grid mat
+        {
+            auto Samplers = std::array{ xgpu::pipeline::sampler{.m_AddressMode = std::array{ xgpu::pipeline::sampler::address_mode::CLAMP, xgpu::pipeline::sampler::address_mode::CLAMP, xgpu::pipeline::sampler::address_mode::CLAMP}}         // Shadowmap
+            };
 
-    //    // grid mat instance
-    //    {
-    //        auto Bindings = std::array{ xgpu::pipeline_instance::sampler_binding{ShadowMapTexture} };
-    //        auto setup = xgpu::pipeline_instance::setup
-    //        { .m_PipeLine           = Grid3dMaterial
-    //        , .m_SamplersBindings   = Bindings
-    //        };
+            auto Shaders = std::array<const xgpu::shader*, 2>{ &FragShader, &VertexShader };
 
-    //        if (auto Err = Device.Create(Grid3dMaterialInstance, setup); Err)
-    //        {
-    //            e21::Debugger(xgpu::getErrorMsg(Err));
-    //            assert(false);
-    //            std::exit(xgpu::getErrorInt(Err));
-    //        }
-    //    }
-    //}
+
+            auto UBuffersUsage = std::array{ xgpu::pipeline::uniform_binds {.m_BindIndex = 0         // MeshUniforms, bind 0 set 2, changes per mesh/draw call
+                                                                            , .m_Usage = xgpu::shader::type{xgpu::shader::type::bit::VERTEX | xgpu::shader::type::bit::FRAGMENT}
+                                                                            , .m_Type = xgpu::pipeline::uniform_binds::type::UBO_DYNAMIC      // MUST be dynamic (per object)
+                                                                           }
+            };
+
+            auto Setup = xgpu::pipeline::setup
+            { .m_VertexDescriptor = Primitive3DVertexDescriptor
+            , .m_Shaders = Shaders
+            , .m_UniformBinds = UBuffersUsage
+            , .m_Samplers = Samplers
+            , .m_Blend              = xgpu::pipeline::blend::getAlphaOriginal()
+            };
+
+            if (auto Err = Device.Create(Grid3dMaterial, Setup); Err)
+            {
+                assert(false);
+                exit(xgpu::getErrorInt(Err));
+            }
+        }
+
+        // grid mat instance
+        {
+            auto Bindings = std::array{ xgpu::pipeline_instance::sampler_binding{ShadowMapTexture} };
+            auto setup = xgpu::pipeline_instance::setup
+            { .m_PipeLine           = Grid3dMaterial
+            , .m_SamplersBindings   = Bindings
+            };
+
+            if (auto Err = Device.Create(Grid3dMaterialInstance, setup); Err)
+            {
+                e21::Debugger(xgpu::getErrorMsg(Err));
+                assert(false);
+                std::exit(xgpu::getErrorInt(Err));
+            }
+        }
+    }
 
 
     //
@@ -1469,13 +1482,15 @@ int E21_Example()
                 //
                 {
                     CmdBuffer.setPipelineInstance(Grid3dMaterialInstance);
-                    grid_push_constants Push;
 
-                    Push.m_WorldSpaceCameraPos = View.getPosition();
-                    Push.m_L2W          = xmath::fmat4(xmath::fvec3(100.f, 100.0f, 1.f), xmath::radian3(-90_xdeg, 0_xdeg, 0_xdeg), xmath::fvec3(0, maxY, 0));
-                    Push.m_W2C          = View.getW2C();
-                    Push.m_L2CTShadow   = C2T * ShadowGenerationPushC.m_L2C * Push.m_L2W;
-                    CmdBuffer.setPushConstants(Push);
+
+                    auto& GridUBO = GridDynamicUBO.allocEntry<ubo_grid>();
+
+                    GridUBO.m_WorldSpaceCameraPos = View.getPosition();
+                    GridUBO.m_L2W          = xmath::fmat4(xmath::fvec3(100.f, 100.0f, 1.f), xmath::radian3(-90_xdeg, 0_xdeg, 0_xdeg), xmath::fvec3(0, maxY, 0));
+                    GridUBO.m_W2C          = View.getW2C();
+                    GridUBO.m_L2CTShadow   = C2T * ShadowGenerationPushC.m_L2C * GridUBO.m_L2W;
+                    CmdBuffer.setDynamicUBO(GridDynamicUBO, 0);
                     MeshManager.Rendering(CmdBuffer, e19::mesh_manager::model::PLANE3D);
                 }
             }

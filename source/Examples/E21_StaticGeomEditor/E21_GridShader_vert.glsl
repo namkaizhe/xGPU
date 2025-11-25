@@ -7,7 +7,7 @@
 const float GridScale = 1.0;
 
 // Push constants
-layout(push_constant) uniform PushConsts 
+layout(set=2, binding = 0) uniform PushConsts
 {
     mat4 L2W;
     mat4 W2C;

@@ -23,8 +23,8 @@ const vec4 ZAxisColor = vec4(0.0, 0.0, 1.0, 1.0);
 
 layout(binding = 0) uniform sampler2D SamplerShadowMap;        // [INPUT_TEXTURE_SHADOW]
 
-// Push constants
-layout(push_constant) uniform PushConsts {
+// Grid parameters
+layout(set=2, binding = 0) uniform PushConsts {
     mat4 L2W;
     mat4 W2C;
     mat4 ShadowL2C;
